@@ -4,6 +4,7 @@ import (
 	"context"
 
 	core "github.com/v2fly/v2ray-core/v5"
+	"github.com/v2fly/v2ray-core/v5/app/proxyman"
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/errors"
@@ -68,7 +69,13 @@ func (c *Cliente) Process(ctx context.Context, enlace *transport.Link, marcador 
 		return errors.New("mx: cuenta invalida")
 	}
 
-	conexion, err := marcador.Dial(ctx, servidor.Destination())
+	sesionRapida := proxyman.NuevaSesionAutenticacionRapida("mx", usuario, salida.Target)
+	ctxConexion := proxyman.ContextWithSesionAutenticacionRapida(ctx, sesionRapida)
+	if preparador, ok := marcador.(proxyman.IAutenticacionRapidaSalida); ok {
+		ctxConexion = preparador.PrepararAutenticacionRapida(ctxConexion, salida.Target, usuario)
+	}
+
+	conexion, err := marcador.Dial(ctxConexion, servidor.Destination())
 	if err != nil {
 		return errors.New("mx: no se pudo conectar al servidor").Base(err)
 	}
@@ -76,15 +83,17 @@ func (c *Cliente) Process(ctx context.Context, enlace *transport.Link, marcador 
 
 	sesionPolitica := c.politicas.ForLevel(usuario.Level)
 	if flujo, err := packetaddr.ToPacketAddrConn(enlace, salida.Target); err == nil {
-		return c.procesarUDPDirigido(ctx, sesionPolitica, conexion, flujo, enlace, cuenta.Id, salida.Target)
+		return c.procesarUDPDirigido(ctx, sesionPolitica, conexion, flujo, enlace, cuenta.Id, salida.Target, sesionRapida.OmiteCabecera())
 	}
 
 	if salida.Target.Network == net.Network_UDP {
-		return c.procesarUDPFijo(ctx, sesionPolitica, conexion, enlace, cuenta.Id, salida.Target)
+		return c.procesarUDPFijo(ctx, sesionPolitica, conexion, enlace, cuenta.Id, salida.Target, sesionRapida.OmiteCabecera())
 	}
 
-	if err := escribirCabecera(conexion, cuenta.Id, salida.Target); err != nil {
-		return err
+	if !sesionRapida.OmiteCabecera() {
+		if err := escribirCabecera(conexion, cuenta.Id, salida.Target); err != nil {
+			return err
+		}
 	}
 	return relevarConexion(
 		ctx,
@@ -101,9 +110,12 @@ func (c *Cliente) procesarUDPFijo(
 	enlace *transport.Link,
 	id string,
 	destino net.Destination,
+	omitirCabecera bool,
 ) error {
-	if err := escribirCabecera(conexion, id, destino); err != nil {
-		return err
+	if !omitirCabecera {
+		if err := escribirCabecera(conexion, id, destino); err != nil {
+			return err
+		}
 	}
 	return relevarConexion(
 		ctx,
@@ -121,6 +133,7 @@ func (c *Cliente) procesarUDPDirigido(
 	enlace *transport.Link,
 	id string,
 	destino net.Destination,
+	omitirCabecera bool,
 ) error {
 	ctx, cancelar := context.WithCancel(ctx)
 	defer cancelar()
@@ -137,8 +150,10 @@ func (c *Cliente) procesarUDPDirigido(
 		}
 
 		escritorBuffer := buf.NewBufferedWriter(buf.NewWriter(conexion))
-		if err := escribirCabecera(escritorBuffer, id, destino); err != nil {
-			return err
+		if !omitirCabecera {
+			if err := escribirCabecera(escritorBuffer, id, destino); err != nil {
+				return err
+			}
 		}
 
 		escritor := &escritorPaqueteDireccionado{Writer: escritorBuffer}
