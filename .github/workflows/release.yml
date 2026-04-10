@@ -5,23 +5,6 @@ on:
     types:
       - prereleased
       - released
-  push:
-    branches:
-      - master
-      - v*
-      - dev*
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - ".github/workflows/release.yml"
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - ".github/workflows/release.yml"
 
 jobs:
   build:

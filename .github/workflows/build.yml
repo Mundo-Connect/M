@@ -1,0 +1,44 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+      - v*
+      - dev*
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/build.yml"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/build.yml"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            comando: go build -o mproxy.exe -trimpath -ldflags="-s -w" -v ./main
+          - os: ubuntu-latest
+            comando: go build -o mproxy -trimpath -ldflags="-s -w" -v ./main
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ./go.mod
+          cache-dependency-path: ./go.sum
+
+      - name: Build
+        run: ${{ matrix.comando }}
