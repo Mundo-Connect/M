@@ -1,44 +1,100 @@
-<div>
-  <img width="190" height="210" align="left" src="https://raw.githubusercontent.com/v2fly/v2fly-github-io/master/docs/.vuepress/public/readme-logo.png" alt="V2Ray"/>
-  <br>
-  <h1>Project V</h1>
-  <p>Project V is a set of network tools that helps you to build your own computer network. It secures your network connections and thus protects your privacy.</p>
-</div>
+```text
+    MM       MM
+    MMM     MMM
+    MM M   M MM
+    MM  M M  MM
+    MM   M   MM
+    MM       MM
+    MM       MM
+```
 
-[![GitHub Test Badge](https://github.com/v2fly/v2ray-core/actions/workflows/test.yml/badge.svg)](https://github.com/v2fly/v2ray-core/actions/workflows/test.yml)
-[![codecov.io](https://codecov.io/gh/v2fly/v2ray-core/branch/master/graph/badge.svg?branch=master)](https://codecov.io/gh/v2fly/v2ray-core?branch=master)
-[![goreportcard](https://goreportcard.com/badge/github.com/v2fly/v2ray-core/v5)](https://goreportcard.com/report/github.com/v2fly/v2ray-core/v5)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/e150b7ede2114388921943bf23d95161)](https://app.codacy.com/gh/v2fly/v2ray-core/dashboard)
-[![Downloads](https://img.shields.io/github/downloads/v2fly/v2ray-core/total.svg)](https://github.com/v2fly/v2ray-core/releases/latest)
+# Project M
 
-## Related Links
+`MConnectOSS` is part of **Project M**, the open Mundo Connect ecosystem.
 
-- [Documentation](https://www.v2fly.org) and [Newcomer's Instructions](https://www.v2fly.org/guide/start.html)
-- Welcome to translate V2Ray documents via [Transifex](https://www.transifex.com/v2fly/public/)
+Project M is a new Internet proxy solution developed for the Mundo Connect family. It is designed as a modern, modular, and extensible connectivity core for Internet proxying, transport adaptation, and protocol evolution.
 
-## Packaging Status
+This repository provides an open-source Project M core implementation and continues a code lineage that originates from V2Ray, specifically [`v2fly/v2ray-core`](https://github.com/v2fly/v2ray-core).
 
-> If you are willing to package V2Ray for other distros/platforms, please let us know or seek for help via [GitHub issues](https://github.com/v2fly/v2ray-core/issues).
+Website: [668993.xyz](https://668993.xyz)
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/v2ray.svg)](https://repology.org/project/v2ray/versions)
+Language: **English** | [Español](README.es.md)
+
+## Overview
+
+Project M is intended for operators, developers, researchers, and integrators who require a flexible proxy core with a clean architecture and a stable extension surface.
+
+This repository is positioned as:
+
+- a Project M core implementation within the Mundo Connect ecosystem;
+- a modular proxy engine for inbound, outbound, routing, and transport composition;
+- a practical base for protocol integration, transport experimentation, and deployment work;
+- an open-source implementation distributed under the MIT License.
+
+## Project M and Mundo Connect
+
+Project M is a core initiative within the Mundo Connect ecosystem.
+
+The objective of Project M is to provide a new Internet proxy solution with:
+
+- a modular architecture;
+- protocol and transport extensibility;
+- production-oriented deployment capability;
+- a maintainable open-source core;
+- a clear path for future protocol families under the Mundo Connect umbrella.
+
+Mundo Connect is not limited to a single protocol or a single transport. Project M is intended to serve as an implementation foundation for a broader ecosystem of interoperable proxy technologies.
+
+## Origin
+
+This repository originates from the V2Ray code lineage and is based on the architecture and source foundation of [`v2fly/v2ray-core`](https://github.com/v2fly/v2ray-core).
+
+Project M continues that technical base while establishing its own product direction, documentation style, ecosystem identity, and long-term roadmap within Mundo Connect.
+
+## Documentation
+
+- Official website: [668993.xyz](https://668993.xyz)
+- Spanish documentation: [README.es.md](README.es.md)
+- Upstream technical origin: [`v2fly/v2ray-core`](https://github.com/v2fly/v2ray-core)
+
+## Scope
+
+The codebase is intended to support:
+
+- modular inbound and outbound proxy implementations;
+- transport composition and transport-layer evolution;
+- routing, dispatch, and policy control;
+- protocol development within the Project M and Mundo Connect ecosystem;
+- integration into larger client, server, and platform-specific products.
+
+## Build
+
+This repository follows the Go-based build model inherited from the upstream core architecture.
+
+Typical development workflow:
+
+### Windows (PowerShell)
+
+```powershell
+go build -o mproxy.exe -trimpath -ldflags="-s -w" -v ./main
+```
+
+### Linux / macOS
+
+```bash
+CGO_ENABLED=0 go build -o mproxy -trimpath -ldflags="-s -w" -v ./main
+```
+
+Environment-specific packaging, platform integration, and embedded use may apply additional build requirements depending on the target product.
 
 ## License
 
-[The MIT License (MIT)](https://raw.githubusercontent.com/v2fly/v2ray-core/master/LICENSE)
+This repository is distributed under the [MIT License](LICENSE).
 
-## Credits
+The open-source implementation and protocol work contained in this repository are provided under MIT.
 
-This repo relies on the following third-party projects:
+## Acknowledgement
 
-- In production:
-  - [gorilla/websocket](https://github.com/gorilla/websocket)
-  - [quic-go/quic-go](https://github.com/quic-go/quic-go)
-  - [pires/go-proxyproto](https://github.com/pires/go-proxyproto)
-  - [seiflotfy/cuckoofilter](https://github.com/seiflotfy/cuckoofilter)
-  - [google/starlark-go](https://github.com/google/starlark-go)
-  - [jhump/protoreflect](https://github.com/jhump/protoreflect)
-  - [inetaf/netaddr](https://github.com/inetaf/netaddr)
+Project M acknowledges the technical foundation established by the V2Ray community and the upstream work maintained in [`v2fly/v2ray-core`](https://github.com/v2fly/v2ray-core).
 
-- For testing only:
-  - [miekg/dns](https://github.com/miekg/dns)
-  - [h12w/socks](https://github.com/h12w/socks)
+Project M is developed as part of the broader Mundo Connect ecosystem and represents a distinct direction for a new generation of Internet proxy solutions.

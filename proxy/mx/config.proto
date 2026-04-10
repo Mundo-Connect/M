@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package v2ray.core.proxy.mx;
+option csharp_namespace = "V2Ray.Core.Proxy.Mx";
+option go_package = "github.com/v2fly/v2ray-core/v5/proxy/mx";
+option java_package = "com.v2ray.core.proxy.mx";
+option java_multiple_files = true;
+
+import "common/protocol/server_spec.proto";
+import "common/protocol/user.proto";
+
+message Cuenta {
+  string id = 1;
+}
+
+message ConfiguracionCliente {
+  repeated v2ray.core.common.protocol.ServerEndpoint vnext = 1;
+}
+
+message ConfiguracionServidor {
+  repeated v2ray.core.common.protocol.User users = 1;
+}
