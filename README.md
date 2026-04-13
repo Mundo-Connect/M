@@ -82,7 +82,7 @@ go build -o mproxy.exe -trimpath -ldflags="-s -w" -v ./main
 ### Linux / macOS
 
 ```bash
-CGO_ENABLED=0 go build -o mproxy -trimpath -ldflags="-s -w" -v ./main
+go build -o mproxy -trimpath -ldflags="-s -w" -v ./main
 ```
 
 Environment-specific packaging, platform integration, and embedded use may apply additional build requirements depending on the target product.
