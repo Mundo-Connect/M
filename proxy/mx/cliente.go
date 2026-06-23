@@ -71,15 +71,23 @@ func (c *Cliente) Process(ctx context.Context, enlace *transport.Link, marcador 
 
 	sesionRapida := proxyman.NuevaSesionAutenticacionRapida("mx", usuario, salida.Target)
 	ctxConexion := proxyman.ContextWithSesionAutenticacionRapida(ctx, sesionRapida)
-	if preparador, ok := marcador.(proxyman.IAutenticacionRapidaSalida); ok {
-		ctxConexion = preparador.PrepararAutenticacionRapida(ctxConexion, salida.Target, usuario)
-	}
+
+	fastAuthPayload := buildFastAuthPayload(cuenta.Id, salida.Target)
+	ctxConexion = session.ContextWithFastAuthPayload(ctxConexion, fastAuthPayload)
+
+	estadoRapido := proxyFastAuthState(cuenta.Id, servidor.Destination())
+	ctxConexion = session.ContextWithFastAuthState(ctxConexion, estadoRapido)
 
 	conexion, err := marcador.Dial(ctxConexion, servidor.Destination())
 	if err != nil {
 		return errors.New("mx: no se pudo conectar al servidor").Base(err)
 	}
 	defer conexion.Close()
+
+	observeFastAuthResult(conexion, estadoRapido)
+	if estadoRapido.State() == session.FastAuthCapabilitySupported {
+		sesionRapida.Activar()
+	}
 
 	sesionPolitica := c.politicas.ForLevel(usuario.Level)
 	if flujo, err := packetaddr.ToPacketAddrConn(enlace, salida.Target); err == nil {

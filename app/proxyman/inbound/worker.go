@@ -12,6 +12,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/environment"
 	"github.com/v2fly/v2ray-core/v5/common/environment/envctx"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal/done"
@@ -60,6 +61,18 @@ func (w *tcpWorker) callback(conn internet.Connection) {
 	ctx, cancel := context.WithCancel(w.ctx)
 	sid := session.NewID()
 	ctx = session.ContextWithID(ctx, sid)
+
+	if wrapper, ok := conn.(*internet.FastAuthConnWrapper); ok && wrapper != nil && wrapper.FastAuthResult != nil && wrapper.FastAuthResult.Status == session.FastAuthStatusOK {
+		var usuario *protocol.MemoryUser
+		if u, ok := wrapper.FastAuthUser.(*protocol.MemoryUser); ok {
+			usuario = u
+		}
+		ctx = proxyman.ContextWithResultadoAutenticacionRapida(ctx, &proxyman.ResultadoAutenticacionRapida{
+			Protocolo: wrapper.FastAuthProtocol,
+			Usuario:   usuario,
+			Destino:   wrapper.FastAuthTarget,
+		})
+	}
 
 	if w.recvOrigDest {
 		var dest net.Destination
@@ -120,6 +133,9 @@ func (w *tcpWorker) Start() error {
 		return newError("unable to narrow environment to transport").Base(err)
 	}
 	ctx = envctx.ContextWithEnvironment(ctx, transportEnvironment)
+	if validator, ok := w.proxy.(session.FastAuthValidator); ok {
+		ctx = session.ContextWithFastAuthValidator(ctx, validator)
+	}
 	hub, err := internet.ListenTCP(ctx, w.address, w.port, w.stream, func(conn internet.Connection) {
 		go w.callback(conn)
 	})

@@ -67,6 +67,32 @@ func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Req
 		}
 	}
 
+	var fastAuthResult *internet.FastAuthResult
+	var fastAuthUser interface{}
+	var fastAuthTarget net.Destination
+	if raw := request.Header.Get(internet.FastAuthRequestHeader); raw != "" {
+		payload, err := internet.DecodeFastAuthPayload(raw)
+		if err == nil && payload != nil {
+			if validator := session.FastAuthValidatorFromContext(h.ln.ctx); validator != nil {
+				inbound, validateErr := validator.ValidateFastAuth(request.Context(), payload)
+				if validateErr == nil && inbound != nil {
+					responseHeader.Set(internet.FastAuthResponseHeader, session.FastAuthStatusOK)
+					fastAuthResult = &internet.FastAuthResult{Status: session.FastAuthStatusOK}
+					fastAuthUser = inbound.User
+					if t, ok := inbound.Target.(net.Destination); ok {
+						fastAuthTarget = t
+					}
+				} else {
+					responseHeader.Set(internet.FastAuthResponseHeader, session.FastAuthStatusFail)
+				}
+			} else {
+				responseHeader.Set(internet.FastAuthResponseHeader, session.FastAuthStatusFail)
+			}
+		} else {
+			responseHeader.Set(internet.FastAuthResponseHeader, session.FastAuthStatusFail)
+		}
+	}
+
 	conn, err := upgrader.Upgrade(writer, request, responseHeader)
 	if err != nil {
 		newError("failed to convert to WebSocket connection").Base(err).WriteToLog()
@@ -81,11 +107,27 @@ func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Req
 			Port: int(0),
 		}
 	}
+
+	var baseConn net.Conn
 	if earlyData == nil {
-		h.ln.addConn(newConnection(conn, remoteAddr))
+		baseConn = newConnection(conn, remoteAddr)
 	} else {
-		h.ln.addConn(newConnectionWithEarlyData(conn, remoteAddr, earlyData))
+		baseConn = newConnectionWithEarlyData(conn, remoteAddr, earlyData)
 	}
+
+	var finalConn internet.Connection
+	if fastAuthResult != nil {
+		finalConn = &internet.FastAuthConnWrapper{
+			Connection:       baseConn,
+			FastAuthProtocol: "mx",
+			FastAuthUser:     fastAuthUser,
+			FastAuthTarget:   fastAuthTarget,
+			FastAuthResult:   fastAuthResult,
+		}
+	} else {
+		finalConn = baseConn
+	}
+	h.ln.addConn(finalConn)
 }
 
 type Listener struct {
@@ -94,11 +136,13 @@ type Listener struct {
 	listener net.Listener
 	config   *Config
 	addConn  internet.ConnHandler
+	ctx      context.Context
 }
 
 func ListenWS(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, addConn internet.ConnHandler) (internet.Listener, error) {
 	l := &Listener{
 		addConn: addConn,
+		ctx:     ctx,
 	}
 	wsSettings := streamSettings.ProtocolSettings.(*Config)
 	l.config = wsSettings

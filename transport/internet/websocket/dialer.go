@@ -24,18 +24,19 @@ import (
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
 	newError("creating connection to ", dest).WriteToLog(session.ExportIDToError(ctx))
 
-	conn, err := dialWebsocket(ctx, dest, streamSettings)
+	fastAuth := internet.PrepareFastAuthRequest(ctx)
+	conn, err := dialWebsocket(ctx, dest, streamSettings, fastAuth)
 	if err != nil {
 		return nil, newError("failed to dial WebSocket").Base(err)
 	}
-	return internet.Connection(conn), nil
+	return conn, nil
 }
 
 func init() {
 	common.Must(internet.RegisterTransportDialer(protocolName, Dial))
 }
 
-func dialWebsocket(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (net.Conn, error) {
+func dialWebsocket(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig, fastAuth internet.FastAuthRequest) (internet.Connection, error) {
 	wsSettings := streamSettings.ProtocolSettings.(*Config)
 
 	dialer := &websocket.Dialer{
@@ -100,15 +101,24 @@ func dialWebsocket(ctx context.Context, dest net.Destination, streamSettings *in
 		return newRelayedConnection(conn), nil
 	}
 
+	requestHeader := wsSettings.GetRequestHeader()
+	if fastAuth.Enabled() {
+		if err := fastAuth.SetHTTPHeaders(requestHeader); err != nil {
+			return nil, newError("failed to set fast auth headers").Base(err)
+		}
+	}
+
 	if wsSettings.MaxEarlyData != 0 {
 		return newConnectionWithDelayedDial(&dialerWithEarlyData{
-			dialer:  dialer,
-			uriBase: uri,
-			config:  wsSettings,
+			dialer:        dialer,
+			uriBase:       uri,
+			config:        wsSettings,
+			requestHeader: requestHeader,
+			fastAuth:      fastAuth,
 		}), nil
 	}
 
-	conn, resp, err := dialer.Dial(uri, wsSettings.GetRequestHeader()) // nolint: bodyclose
+	conn, resp, err := dialer.Dial(uri, requestHeader) // nolint: bodyclose
 	if err != nil {
 		var reason string
 		if resp != nil {
@@ -117,13 +127,24 @@ func dialWebsocket(ctx context.Context, dest net.Destination, streamSettings *in
 		return nil, newError("failed to dial to (", uri, "): ", reason).Base(err)
 	}
 
+	result := fastAuth.ConnectionResult(fastAuth.ObserveHeader(resp.Header))
+	if result != nil && result.Status == session.FastAuthStatusOK {
+		return &internet.FastAuthConnWrapper{
+			Connection:       newConnection(conn, conn.RemoteAddr()),
+			FastAuthProtocol: "mx",
+			FastAuthResult:   result,
+		}, nil
+	}
+
 	return newConnection(conn, conn.RemoteAddr()), nil
 }
 
 type dialerWithEarlyData struct {
-	dialer  *websocket.Dialer
-	uriBase string
-	config  *Config
+	dialer        *websocket.Dialer
+	uriBase       string
+	config        *Config
+	requestHeader http.Header
+	fastAuth      internet.FastAuthRequest
 }
 
 func (d dialerWithEarlyData) Dial(earlyData []byte) (*websocket.Conn, error) {
@@ -142,13 +163,13 @@ func (d dialerWithEarlyData) Dial(earlyData []byte) (*websocket.Conn, error) {
 	}
 
 	dialFunction := func() (*websocket.Conn, *http.Response, error) {
-		return d.dialer.Dial(d.uriBase+earlyDataBuf.String(), d.config.GetRequestHeader())
+		return d.dialer.Dial(d.uriBase+earlyDataBuf.String(), d.requestHeader)
 	}
 
 	if d.config.EarlyDataHeaderName != "" {
 		dialFunction = func() (*websocket.Conn, *http.Response, error) {
 			earlyDataStr := earlyDataBuf.String()
-			currentHeader := d.config.GetRequestHeader()
+			currentHeader := d.requestHeader
 			currentHeader.Set(d.config.EarlyDataHeaderName, earlyDataStr)
 			return d.dialer.Dial(d.uriBase, currentHeader)
 		}
@@ -162,6 +183,9 @@ func (d dialerWithEarlyData) Dial(earlyData []byte) (*websocket.Conn, error) {
 		}
 		return nil, newError("failed to dial to (", d.uriBase, ") with early data: ", reason).Base(err)
 	}
+
+	_ = d.fastAuth.ObserveHeader(resp.Header)
+
 	if n != int64(len(earlyData)) {
 		if errWrite := conn.WriteMessage(websocket.BinaryMessage, earlyData[n:]); errWrite != nil {
 			return nil, newError("failed to dial to (", d.uriBase, ") with early data as write of remainder early data failed: ").Base(errWrite)
