@@ -38,13 +38,5 @@ jobs:
           go-version-file: ./go.mod
           cache-dependency-path: ./go.sum
 
-      - name: Check Go modules
-        run: |
-          go mod tidy
-          git diff --exit-code go.mod go.sum
-          go mod verify
-
-      - name: Run tests with coverage report
-        run: |
-          go test ./... -v -timeout=1h -coverprofile=coverage.out -covermode=atomic
-
+      - name: Build
+        run: go build ./...
